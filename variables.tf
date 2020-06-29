@@ -8,3 +8,5 @@ variable "db_name" {}
 variable "dynamodb_table_name" {}
 variable "ami_id" {}
 variable "ssh-key-name" {}
+variable "aws_account_id"{}
+variable "code_deploy_application_name"{}
