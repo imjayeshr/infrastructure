@@ -80,6 +80,13 @@ resource "aws_security_group" "application"{
         cidr_blocks = ["0.0.0.0/0"]
     }
     ingress {
+        description = "Nginx server"
+        from_port   = 8080
+        to_port     = 8080
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+    ingress {
         description = "SSH from VPC"
         from_port   = 22
         to_port     = 22
@@ -166,7 +173,7 @@ resource "aws_s3_bucket_public_access_block" "s3_bucket_public_access_block" {
 
         bucket = "${aws_s3_bucket.S3_Bucket.id}"
 
-        block_public_acls   = true
+        block_public_acls   = false
         block_public_policy = false
 }
 
@@ -219,11 +226,92 @@ resource "aws_dynamodb_table" "dynamodb_table" {
     }   
 }
 
+//Creating JSON for Circle to S3 policy    --->>>>>> 2 POLICY
+data "aws_iam_policy_document" "CircleCI_To_S3" {
+  statement {
+    actions   = [
+                "s3:PutObject",
+                "s3:Get*",
+                "s3:List*"
+                ]
+    resources = [
+                  "arn:aws:s3:::codedeploy.potterheadsbookstore.me",
+                  "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+                  ]
+  }
+}
+
+//CircleCI-Upload-To-S3 Policy for CircleCI to Upload to AWS S3      ----->> 2 POLICY
+resource "aws_iam_policy" "CircleCI_Upload_To_S3"{
+    name        = "CircleCI_Upload_To_S3"
+    policy = "${data.aws_iam_policy_document.CircleCI_To_S3.json}"
+    
+}
+
+//Attaching policy to user CICD   -                     --->> 2 POLICY ATTACHED TO USER CICD
+resource "aws_iam_user_policy_attachment" "cicd_CircleCI-Upload-To-S3" {
+  user       = "cicd"
+  policy_arn = "${aws_iam_policy.CircleCI_Upload_To_S3.arn}"
+}
+
+//Creating JSON for Circle CI CodeDeploy          -------->>  3 POLICY JSON
+data "aws_iam_policy_document" "CircleCI_CodeDeploy" {
+
+statement {
+  actions   = [
+        "codedeploy:RegisterApplicationRevision",
+        "codedeploy:GetApplicationRevision"]
+  resources = ["arn:aws:codedeploy:${var.region}:${var.aws_account_id}:application:${var.code_deploy_application_name}"
+  ]
+}
+
+statement {
+  actions = [
+        "codedeploy:CreateDeployment",
+        "codedeploy:GetDeployment"
+  ]
+  resources = ["arn:aws:codedeploy:${var.region}:${var.aws_account_id}:application:${var.code_deploy_application_name}",
+    "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentgroup:${var.code_deploy_application_name}/csye6225-webapp-deployment"
+
+  ]
+
+}
+statement{
+
+  actions = ["codedeploy:GetDeploymentConfig"]
+  resources = [
+              "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.OneAtATime",
+              "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.HalfAtATime",
+              "arn:aws:codedeploy:${var.region}:${var.aws_account_id}:deploymentconfig:CodeDeployDefault.AllAtOnce"
+        ]
+}
+
+}
 
 
-//CREATING IAM ROLE
-resource "aws_iam_role" "iam_role" {
-  name = "EC2-CSYE6225"
+
+//CircleCI-Code-Deploy Policy for CircleCI to Call CodeDeploy      ---------->> 3 POLICY
+resource "aws_iam_policy" "CircleCI_Code_Deploy"{
+
+    name        = "CircleCI-Code-Deploy"
+    policy      = "${data.aws_iam_policy_document.CircleCI_CodeDeploy.json}"
+   
+}
+
+
+
+//Attaching policy to user CICD                              -------->>> ATTACHING 3 POLICY to CICD USER
+resource "aws_iam_user_policy_attachment" "cicd_CircleCI-Code-Deploy" {
+  user       = "cicd"
+  policy_arn = "${aws_iam_policy.CircleCI_Code_Deploy.arn}"
+}
+
+
+
+//Creating role CodeDeploy EC2 Service Role to attach to EC2 instance     ------->> 1 POLICY ROLE
+resource "aws_iam_role" "CodeDeployEC2ServiceRole" {
+  
+  name = "CodeDeployEC2ServiceRole"
 
   assume_role_policy = <<EOF
 {
@@ -240,88 +328,368 @@ resource "aws_iam_role" "iam_role" {
   ]
 }
 EOF
-
-  tags = {
-      tag-key = "tag-value"
-  }
 }
-//CREATING IAM POLICY   -----------> replace *
+
+//CREATING IAM POLICY TO ATTACH TO EC2 INSTANCE
 resource "aws_iam_role_policy" "iam_role_policy" {
   name = "EC2-CSYE6225"
-  role = "${aws_iam_role.iam_role.id}"
+  role = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
 
   policy = <<EOF
 {
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "s3:*"
-      ],
-      "Resource": [
-        "arn:aws:s3:::webapp.jayesh.raghuwanshi",
-        "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
-      ]
-    }
-  ]
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutAnalyticsConfiguration",
+                "s3:GetObjectVersionTagging",
+                "s3:DeleteAccessPoint",
+                "s3:CreateBucket",
+                "s3:ReplicateObject",
+                "s3:GetObjectAcl",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:DeleteBucketWebsite",
+                "s3:PutLifecycleConfiguration",
+                "s3:GetObjectVersionAcl",
+                "s3:PutBucketAcl",
+                "s3:PutObjectTagging",
+                "s3:DeleteObject",
+                "s3:DeleteObjectTagging",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetObjectRetention",
+                "s3:GetBucketWebsite",
+                "s3:PutReplicationConfiguration",
+                "s3:DeleteObjectVersionTagging",
+                "s3:PutObjectLegalHold",
+                "s3:GetObjectLegalHold",
+                "s3:GetBucketNotification",
+                "s3:PutBucketCORS",
+                "s3:DeleteBucketPolicy",
+                "s3:GetReplicationConfiguration",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:PutBucketNotification",
+                "s3:DescribeJob",
+                "s3:PutBucketLogging",
+                "s3:PutObjectVersionAcl",
+                "s3:GetAnalyticsConfiguration",
+                "s3:PutBucketObjectLockConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "s3:PutAccessPointPolicy",
+                "s3:CreateAccessPoint",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetInventoryConfiguration",
+                "s3:GetBucketTagging",
+                "s3:PutAccelerateConfiguration",
+                "s3:DeleteObjectVersion",
+                "s3:GetBucketLogging",
+                "s3:ListBucketVersions",
+                "s3:ReplicateTags",
+                "s3:RestoreObject",
+                "s3:ListBucket",
+                "s3:GetAccelerateConfiguration",
+                "s3:GetBucketPolicy",
+                "s3:PutEncryptionConfiguration",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetObjectVersionTorrent",
+                "s3:AbortMultipartUpload",
+                "s3:PutBucketTagging",
+                "s3:GetBucketRequestPayment",
+                "s3:GetAccessPointPolicyStatus",
+                "s3:UpdateJobPriority",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:DeleteBucket",
+                "s3:PutBucketVersioning",
+                "s3:PutObjectAcl",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:ListBucketMultipartUploads",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:PutMetricsConfiguration",
+                "s3:PutObjectVersionTagging",
+                "s3:UpdateJobStatus",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:BypassGovernanceRetention",
+                "s3:PutInventoryConfiguration",
+                "s3:GetObjectTorrent",
+                "s3:ObjectOwnerOverrideToBucketOwner",
+                "s3:PutBucketWebsite",
+                "s3:PutBucketRequestPayment",
+                "s3:PutObjectRetention",
+                "s3:GetBucketCORS",
+                "s3:PutBucketPolicy",
+                "s3:DeleteAccessPointPolicy",
+                "s3:GetBucketLocation",
+                "s3:GetAccessPointPolicy",
+                "s3:ReplicateDelete",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetAccessPoint",
+                "s3:PutAccountPublicAccessBlock",
+                "s3:GetAccountPublicAccessBlock",
+                "s3:ListAllMyBuckets",
+                "s3:ListAccessPoints",
+                "s3:ListJobs",
+                "s3:CreateJob",
+                "s3:HeadBucket"
+            ],
+            "Resource": "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
+        }
+    ]
 }
 EOF
 }
 
+resource "aws_iam_role_policy" "iam_role_policy_2" {
+  name = "EC2-CSYE6225-CodeDeplyBucket"
+  role = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
 
-resource "aws_iam_instance_profile" "EC2-CSYE6225" {
-  name = "EC2-CSYE6225"
-  role = "${aws_iam_role.iam_role.name}"
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "VisualEditor0",
+            "Effect": "Allow",
+            "Action": [
+                "s3:PutAnalyticsConfiguration",
+                "s3:GetObjectVersionTagging",
+                "s3:DeleteAccessPoint",
+                "s3:CreateBucket",
+                "s3:ReplicateObject",
+                "s3:GetObjectAcl",
+                "s3:GetBucketObjectLockConfiguration",
+                "s3:DeleteBucketWebsite",
+                "s3:PutLifecycleConfiguration",
+                "s3:GetObjectVersionAcl",
+                "s3:PutBucketAcl",
+                "s3:PutObjectTagging",
+                "s3:DeleteObject",
+                "s3:DeleteObjectTagging",
+                "s3:GetBucketPolicyStatus",
+                "s3:GetObjectRetention",
+                "s3:GetBucketWebsite",
+                "s3:PutReplicationConfiguration",
+                "s3:DeleteObjectVersionTagging",
+                "s3:PutObjectLegalHold",
+                "s3:GetObjectLegalHold",
+                "s3:GetBucketNotification",
+                "s3:PutBucketCORS",
+                "s3:DeleteBucketPolicy",
+                "s3:GetReplicationConfiguration",
+                "s3:ListMultipartUploadParts",
+                "s3:PutObject",
+                "s3:GetObject",
+                "s3:PutBucketNotification",
+                "s3:DescribeJob",
+                "s3:PutBucketLogging",
+                "s3:PutObjectVersionAcl",
+                "s3:GetAnalyticsConfiguration",
+                "s3:PutBucketObjectLockConfiguration",
+                "s3:GetObjectVersionForReplication",
+                "s3:PutAccessPointPolicy",
+                "s3:CreateAccessPoint",
+                "s3:GetLifecycleConfiguration",
+                "s3:GetInventoryConfiguration",
+                "s3:GetBucketTagging",
+                "s3:PutAccelerateConfiguration",
+                "s3:DeleteObjectVersion",
+                "s3:GetBucketLogging",
+                "s3:ListBucketVersions",
+                "s3:ReplicateTags",
+                "s3:RestoreObject",
+                "s3:ListBucket",
+                "s3:GetAccelerateConfiguration",
+                "s3:GetBucketPolicy",
+                "s3:PutEncryptionConfiguration",
+                "s3:GetEncryptionConfiguration",
+                "s3:GetObjectVersionTorrent",
+                "s3:AbortMultipartUpload",
+                "s3:PutBucketTagging",
+                "s3:GetBucketRequestPayment",
+                "s3:GetAccessPointPolicyStatus",
+                "s3:UpdateJobPriority",
+                "s3:GetObjectTagging",
+                "s3:GetMetricsConfiguration",
+                "s3:DeleteBucket",
+                "s3:PutBucketVersioning",
+                "s3:PutObjectAcl",
+                "s3:GetBucketPublicAccessBlock",
+                "s3:ListBucketMultipartUploads",
+                "s3:PutBucketPublicAccessBlock",
+                "s3:PutMetricsConfiguration",
+                "s3:PutObjectVersionTagging",
+                "s3:UpdateJobStatus",
+                "s3:GetBucketVersioning",
+                "s3:GetBucketAcl",
+                "s3:BypassGovernanceRetention",
+                "s3:PutInventoryConfiguration",
+                "s3:GetObjectTorrent",
+                "s3:ObjectOwnerOverrideToBucketOwner",
+                "s3:PutBucketWebsite",
+                "s3:PutBucketRequestPayment",
+                "s3:PutObjectRetention",
+                "s3:GetBucketCORS",
+                "s3:PutBucketPolicy",
+                "s3:DeleteAccessPointPolicy",
+                "s3:GetBucketLocation",
+                "s3:GetAccessPointPolicy",
+                "s3:ReplicateDelete",
+                "s3:GetObjectVersion"
+            ],
+            "Resource": "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+        },
+        {
+            "Sid": "VisualEditor1",
+            "Effect": "Allow",
+            "Action": [
+                "s3:GetAccessPoint",
+                "s3:PutAccountPublicAccessBlock",
+                "s3:GetAccountPublicAccessBlock",
+                "s3:ListAllMyBuckets",
+                "s3:ListAccessPoints",
+                "s3:ListJobs",
+                "s3:CreateJob",
+                "s3:HeadBucket"
+            ],
+            "Resource": "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+        }
+    ]
 }
-data "aws_db_instance" "databaseData" {
-  db_instance_identifier = "${aws_db_instance.rds_instance.id}"
- }
+EOF
+}
+
+//Creating JSON policy for Role CodeDeployEC2Service      --------->>>  1 POLICY JSON
+# data "aws_iam_policy_document" "CodeDeploy_EC2_to_S3" {
+
+#   statement {
+#     actions = [
+#                 "s3:Get*",
+#                 "s3:List*"]
+#     resources = [
+#               "arn:aws:s3:::codedeploy.potterheadsbookstore.me",
+#               "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"            
+
+#     ]
+#   }
+#   statement{
+#     actions = [
+#        "s3:Get*",
+#         "s3:Put*",
+#         "s3:List*",
+#         "s3:Delete*",
+#         "s3:Create*"
+#     ]
+#     resources = [
+#         "arn:aws:s3:::webapp.jayesh.raghuwanshi",
+#         "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
+#     ]
+#   }
+# }
+
+# //CREATE CodeDeploy-EC2-S3 policy for the Server(EC2)         ------->>>>  1 POLICY
+# resource "aws_iam_role_policy" "CodeDeploy-EC2-S3"{
+#     name        = "CodeDeploy-EC2-S3"
+#     role        = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
+#     policy      = "${data.aws_iam_policy_document.CodeDeploy_EC2_to_S3.json}"    
+   
+# }
+
+//CREATE CodeDeployServiceRole                     ------->> 2 ROLE
+resource "aws_iam_role" "CodeDeployServiceRole" {
+  name                        = "CodeDeployServiceRole"
+  assume_role_policy          = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "codedeploy.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF 
+  
+  
+  force_detach_policies = true
+}
+
+// ATTACHING ROLE 2 to POLICY                                ----->> ROLE 2 POLICY ATTACHMENT
+resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole_Attachment"{
+  role = "${aws_iam_role.CodeDeployServiceRole.id}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
 
 
-data "template_file" "init" {
-  template = "${file("init.tpl")}"
-  vars = {
-    consul_address = "${data.aws_db_instance.databaseData.address}"
+resource "aws_iam_instance_profile" "CodeDeployEC2ServiceRole_Instance" {
+  name = "CodeDeployEC2ServiceRole_Instance"
+  role = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
+}
+//AWS EC2 INSTANCE
+resource "aws_instance" "web" {
+
+  ami                             = "${var.ami_id}"
+  subnet_id                       = "${aws_subnet.csye6225_subnet[0].id}"
+  associate_public_ip_address     = true
+  instance_type                   = "t2.micro"
+  key_name                        = "${var.ssh-key-name}"
+  iam_instance_profile            = "${aws_iam_instance_profile.CodeDeployEC2ServiceRole_Instance.name}"
+  vpc_security_group_ids          = ["${aws_security_group.application.id}"]
+
+  tags ={
+    Name = "ec2-instance"
   }
-}
-
-//CREATING EC2 INSTANCE  ------> take variable from command line
-resource "aws_instance" "web"{
-    ami                             = "${var.ami_id}"
-    count                           = "${length(data.aws_availability_zones.availability_zones.names)}"  
-    subnet_id                       = "${element(aws_subnet.csye6225_subnet.*.id, count.index)}"
-    associate_public_ip_address     = true
-    instance_type                   = "t2.micro"
-    //disable_api_termination         = true
-    iam_instance_profile            = "${aws_iam_instance_profile.EC2-CSYE6225.name}"
-    vpc_security_group_ids          = ["${aws_security_group.application.id}"]
-    key_name                        = "${var.ssh-key-name}"
-    
-    user_data                       =     "${file("init.tpl")}"
-
-
+    user_data                       = "${file("init.tpl")}"
+   
     root_block_device {
     volume_size           = "20"
     volume_type           = "gp2"
     delete_on_termination = true
   }
-}
-
-/*
-/
-
-
-//CREATING IAM POLICY   -----------> replace *
-resource "aws_iam_policy" "iam_policy"{
-    name        = "WebAppS3"
-    policy      = "${data.aws_iam_policy_document.iam_policy_document.json}"
+  depends_on = [aws_db_instance.rds_instance]
 
 }
-//CREATING IAM ROLE
-resource "aws_iam_role" "iam_role" {
-    name               = "EC2-CSYE6225"
-    assume_role_policy = "${aws_iam_policy.iam_policy.id}"
+
+resource "aws_codedeploy_app" "CodeDeploy_App" {
+  compute_platform = "Server"
+  name             = "csye6225-webapp"
+}
+
+resource "aws_codedeploy_deployment_group" "example" {
+  app_name              = "${aws_codedeploy_app.CodeDeploy_App.name}"
+  deployment_group_name = "csye6225-webapp-deployment"
+  service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
+  
+  deployment_style {
+    //deployment_option = "WITH_TRAFFIC_CONTROL"
+    deployment_type   = "IN_PLACE"
+  }
+
+  ec2_tag_filter{
+    key   = "Name"
+      type  = "KEY_AND_VALUE"
+      value = "ec2-instance"
+  }
+
+  auto_rollback_configuration {
+    enabled = true
+    events  = ["DEPLOYMENT_FAILURE"]
+  }
+
+
 
 }
-*/
