@@ -127,16 +127,11 @@ resource "aws_security_group" "database"{
         from_port   = 3306
         to_port     = 3306
         protocol    = "tcp"
-        cidr_blocks = ["0.0.0.0/0"]
+        cidr_blocks = [aws_vpc.csye6225_awsdev.cidr_block]
         security_groups = ["${aws_security_group.application.id}"]
         
     }
-    egress {
-  from_port   = 0
-  to_port     = 0
-  protocol    = "-1"
-  cidr_blocks = ["0.0.0.0/0"]
-}
+    
 }
 
 
@@ -343,107 +338,36 @@ resource "aws_iam_role_policy" "iam_role_policy" {
             "Sid": "VisualEditor0",
             "Effect": "Allow",
             "Action": [
-                "s3:PutAnalyticsConfiguration",
-                "s3:GetObjectVersionTagging",
-                "s3:DeleteAccessPoint",
-                "s3:CreateBucket",
-                "s3:ReplicateObject",
-                "s3:GetObjectAcl",
-                "s3:GetBucketObjectLockConfiguration",
-                "s3:DeleteBucketWebsite",
-                "s3:PutLifecycleConfiguration",
-                "s3:GetObjectVersionAcl",
-                "s3:PutBucketAcl",
-                "s3:PutObjectTagging",
-                "s3:DeleteObject",
-                "s3:DeleteObjectTagging",
-                "s3:GetBucketPolicyStatus",
-                "s3:GetObjectRetention",
-                "s3:GetBucketWebsite",
-                "s3:PutReplicationConfiguration",
-                "s3:DeleteObjectVersionTagging",
-                "s3:PutObjectLegalHold",
-                "s3:GetObjectLegalHold",
-                "s3:GetBucketNotification",
-                "s3:PutBucketCORS",
-                "s3:DeleteBucketPolicy",
-                "s3:GetReplicationConfiguration",
-                "s3:ListMultipartUploadParts",
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:PutBucketNotification",
-                "s3:DescribeJob",
-                "s3:PutBucketLogging",
-                "s3:PutObjectVersionAcl",
-                "s3:GetAnalyticsConfiguration",
-                "s3:PutBucketObjectLockConfiguration",
-                "s3:GetObjectVersionForReplication",
-                "s3:PutAccessPointPolicy",
-                "s3:CreateAccessPoint",
-                "s3:GetLifecycleConfiguration",
-                "s3:GetInventoryConfiguration",
-                "s3:GetBucketTagging",
-                "s3:PutAccelerateConfiguration",
-                "s3:DeleteObjectVersion",
-                "s3:GetBucketLogging",
-                "s3:ListBucketVersions",
-                "s3:ReplicateTags",
-                "s3:RestoreObject",
-                "s3:ListBucket",
-                "s3:GetAccelerateConfiguration",
-                "s3:GetBucketPolicy",
-                "s3:PutEncryptionConfiguration",
-                "s3:GetEncryptionConfiguration",
-                "s3:GetObjectVersionTorrent",
-                "s3:AbortMultipartUpload",
-                "s3:PutBucketTagging",
-                "s3:GetBucketRequestPayment",
-                "s3:GetAccessPointPolicyStatus",
-                "s3:UpdateJobPriority",
-                "s3:GetObjectTagging",
-                "s3:GetMetricsConfiguration",
-                "s3:DeleteBucket",
-                "s3:PutBucketVersioning",
-                "s3:PutObjectAcl",
-                "s3:GetBucketPublicAccessBlock",
-                "s3:ListBucketMultipartUploads",
-                "s3:PutBucketPublicAccessBlock",
-                "s3:PutMetricsConfiguration",
-                "s3:PutObjectVersionTagging",
-                "s3:UpdateJobStatus",
-                "s3:GetBucketVersioning",
-                "s3:GetBucketAcl",
-                "s3:BypassGovernanceRetention",
-                "s3:PutInventoryConfiguration",
-                "s3:GetObjectTorrent",
-                "s3:ObjectOwnerOverrideToBucketOwner",
-                "s3:PutBucketWebsite",
-                "s3:PutBucketRequestPayment",
-                "s3:PutObjectRetention",
-                "s3:GetBucketCORS",
-                "s3:PutBucketPolicy",
-                "s3:DeleteAccessPointPolicy",
-                "s3:GetBucketLocation",
-                "s3:GetAccessPointPolicy",
-                "s3:ReplicateDelete",
-                "s3:GetObjectVersion"
+                "s3:Put*",
+                "s3:Get*",
+                "s3:Delete*",
+                "s3:Create*",
+                "s3:Replicate*",
+                "s3:List*",
+                "s3:Abort*",
+                "s3:Update*"
+               
             ],
-            "Resource": "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
+            "Resource": [
+               "arn:aws:s3:::webapp.jayeshr",
+              "arn:aws:s3:::webapp.jayeshr/*"
+            ]
         },
         {
             "Sid": "VisualEditor1",
             "Effect": "Allow",
             "Action": [
-                "s3:GetAccessPoint",
-                "s3:PutAccountPublicAccessBlock",
-                "s3:GetAccountPublicAccessBlock",
-                "s3:ListAllMyBuckets",
-                "s3:ListAccessPoints",
-                "s3:ListJobs",
-                "s3:CreateJob",
-                "s3:HeadBucket"
+                "s3:Get*",
+                "s3:Put*",
+                "s3:Get*",
+                "s3:List*",
+                "s3:Create*",
+                "s3:Head*"
             ],
-            "Resource": "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
+            "Resource": [
+              "arn:aws:s3:::webapp.jayeshr",
+              "arn:aws:s3:::webapp.jayeshr/*"
+            ]
         }
     ]
 }
@@ -462,148 +386,44 @@ resource "aws_iam_role_policy" "iam_role_policy_2" {
             "Sid": "VisualEditor0",
             "Effect": "Allow",
             "Action": [
-                "s3:PutAnalyticsConfiguration",
-                "s3:GetObjectVersionTagging",
-                "s3:DeleteAccessPoint",
-                "s3:CreateBucket",
-                "s3:ReplicateObject",
-                "s3:GetObjectAcl",
-                "s3:GetBucketObjectLockConfiguration",
-                "s3:DeleteBucketWebsite",
-                "s3:PutLifecycleConfiguration",
-                "s3:GetObjectVersionAcl",
-                "s3:PutBucketAcl",
-                "s3:PutObjectTagging",
-                "s3:DeleteObject",
-                "s3:DeleteObjectTagging",
-                "s3:GetBucketPolicyStatus",
-                "s3:GetObjectRetention",
-                "s3:GetBucketWebsite",
-                "s3:PutReplicationConfiguration",
-                "s3:DeleteObjectVersionTagging",
-                "s3:PutObjectLegalHold",
-                "s3:GetObjectLegalHold",
-                "s3:GetBucketNotification",
-                "s3:PutBucketCORS",
-                "s3:DeleteBucketPolicy",
-                "s3:GetReplicationConfiguration",
-                "s3:ListMultipartUploadParts",
-                "s3:PutObject",
-                "s3:GetObject",
-                "s3:PutBucketNotification",
-                "s3:DescribeJob",
-                "s3:PutBucketLogging",
-                "s3:PutObjectVersionAcl",
-                "s3:GetAnalyticsConfiguration",
-                "s3:PutBucketObjectLockConfiguration",
-                "s3:GetObjectVersionForReplication",
-                "s3:PutAccessPointPolicy",
-                "s3:CreateAccessPoint",
-                "s3:GetLifecycleConfiguration",
-                "s3:GetInventoryConfiguration",
-                "s3:GetBucketTagging",
-                "s3:PutAccelerateConfiguration",
-                "s3:DeleteObjectVersion",
-                "s3:GetBucketLogging",
-                "s3:ListBucketVersions",
-                "s3:ReplicateTags",
-                "s3:RestoreObject",
-                "s3:ListBucket",
-                "s3:GetAccelerateConfiguration",
-                "s3:GetBucketPolicy",
-                "s3:PutEncryptionConfiguration",
-                "s3:GetEncryptionConfiguration",
-                "s3:GetObjectVersionTorrent",
-                "s3:AbortMultipartUpload",
-                "s3:PutBucketTagging",
-                "s3:GetBucketRequestPayment",
-                "s3:GetAccessPointPolicyStatus",
-                "s3:UpdateJobPriority",
-                "s3:GetObjectTagging",
-                "s3:GetMetricsConfiguration",
-                "s3:DeleteBucket",
-                "s3:PutBucketVersioning",
-                "s3:PutObjectAcl",
-                "s3:GetBucketPublicAccessBlock",
-                "s3:ListBucketMultipartUploads",
-                "s3:PutBucketPublicAccessBlock",
-                "s3:PutMetricsConfiguration",
-                "s3:PutObjectVersionTagging",
-                "s3:UpdateJobStatus",
-                "s3:GetBucketVersioning",
-                "s3:GetBucketAcl",
-                "s3:BypassGovernanceRetention",
-                "s3:PutInventoryConfiguration",
-                "s3:GetObjectTorrent",
-                "s3:ObjectOwnerOverrideToBucketOwner",
-                "s3:PutBucketWebsite",
-                "s3:PutBucketRequestPayment",
-                "s3:PutObjectRetention",
-                "s3:GetBucketCORS",
-                "s3:PutBucketPolicy",
-                "s3:DeleteAccessPointPolicy",
-                "s3:GetBucketLocation",
-                "s3:GetAccessPointPolicy",
-                "s3:ReplicateDelete",
-                "s3:GetObjectVersion"
+                "s3:Put*",
+                "s3:Get*",
+                "s3:Delete*",
+                "s3:Create*",
+                "s3:Replicate*",
+                "s3:List*",
+                "s3:Abort*",
+                "s3:Update*"
+               
             ],
-            "Resource": "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+            "Resource": [
+               "arn:aws:s3:::codedeploy.potterheadsbookstore.me",
+              "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+            ]
         },
         {
             "Sid": "VisualEditor1",
             "Effect": "Allow",
             "Action": [
-                "s3:GetAccessPoint",
-                "s3:PutAccountPublicAccessBlock",
-                "s3:GetAccountPublicAccessBlock",
-                "s3:ListAllMyBuckets",
-                "s3:ListAccessPoints",
-                "s3:ListJobs",
-                "s3:CreateJob",
-                "s3:HeadBucket"
+                "s3:Get*",
+                "s3:Put*",
+                "s3:Get*",
+                "s3:List*",
+                "s3:Create*",
+                "s3:Head*"
             ],
-            "Resource": "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+            "Resource": [
+              "arn:aws:s3:::codedeploy.potterheadsbookstore.me",
+              "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"
+            ]
         }
     ]
 }
 EOF
+ 
 }
 
-//Creating JSON policy for Role CodeDeployEC2Service      --------->>>  1 POLICY JSON
-# data "aws_iam_policy_document" "CodeDeploy_EC2_to_S3" {
 
-#   statement {
-#     actions = [
-#                 "s3:Get*",
-#                 "s3:List*"]
-#     resources = [
-#               "arn:aws:s3:::codedeploy.potterheadsbookstore.me",
-#               "arn:aws:s3:::codedeploy.potterheadsbookstore.me/*"            
-
-#     ]
-#   }
-#   statement{
-#     actions = [
-#        "s3:Get*",
-#         "s3:Put*",
-#         "s3:List*",
-#         "s3:Delete*",
-#         "s3:Create*"
-#     ]
-#     resources = [
-#         "arn:aws:s3:::webapp.jayesh.raghuwanshi",
-#         "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
-#     ]
-#   }
-# }
-
-# //CREATE CodeDeploy-EC2-S3 policy for the Server(EC2)         ------->>>>  1 POLICY
-# resource "aws_iam_role_policy" "CodeDeploy-EC2-S3"{
-#     name        = "CodeDeploy-EC2-S3"
-#     role        = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
-#     policy      = "${data.aws_iam_policy_document.CodeDeploy_EC2_to_S3.json}"    
-   
-# }
 
 //CREATE CodeDeployServiceRole                     ------->> 2 ROLE
 resource "aws_iam_role" "CodeDeployServiceRole" {
@@ -634,6 +454,13 @@ resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole_Attachment"{
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
 }
 
+//Attaching policy 3 to role                                 ----------------->>> CloudWatchAgent Server policy
+resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole2_Attachment"{
+  role = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
+
 
 resource "aws_iam_instance_profile" "CodeDeployEC2ServiceRole_Instance" {
   name = "CodeDeployEC2ServiceRole_Instance"
@@ -663,12 +490,12 @@ resource "aws_instance" "web" {
   depends_on = [aws_db_instance.rds_instance]
 
 }
-
+// CREATING CODE DEPLOY APP
 resource "aws_codedeploy_app" "CodeDeploy_App" {
   compute_platform = "Server"
   name             = "csye6225-webapp"
 }
-
+//CREATING CODE DEPLOY DEPLOYMENT GROUP
 resource "aws_codedeploy_deployment_group" "example" {
   app_name              = "${aws_codedeploy_app.CodeDeploy_App.name}"
   deployment_group_name = "csye6225-webapp-deployment"
@@ -680,7 +507,7 @@ resource "aws_codedeploy_deployment_group" "example" {
   }
 
   ec2_tag_filter{
-    key   = "Name"
+      key   = "Name"
       type  = "KEY_AND_VALUE"
       value = "ec2-instance"
   }
