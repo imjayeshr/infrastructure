@@ -349,8 +349,8 @@ resource "aws_iam_role_policy" "iam_role_policy" {
                
             ],
             "Resource": [
-               "arn:aws:s3:::webapp.jayeshr",
-              "arn:aws:s3:::webapp.jayeshr/*"
+               "arn:aws:s3:::webapp.jayesh.raghuwanshi",
+               "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
             ]
         },
         {
@@ -365,8 +365,8 @@ resource "aws_iam_role_policy" "iam_role_policy" {
                 "s3:Head*"
             ],
             "Resource": [
-              "arn:aws:s3:::webapp.jayeshr",
-              "arn:aws:s3:::webapp.jayeshr/*"
+              "arn:aws:s3:::webapp.jayesh.raghuwanshi",
+              "arn:aws:s3:::webapp.jayesh.raghuwanshi/*"
             ]
         }
     ]
@@ -467,6 +467,7 @@ resource "aws_iam_instance_profile" "CodeDeployEC2ServiceRole_Instance" {
   role = "${aws_iam_role.CodeDeployEC2ServiceRole.name}"
 }
 //AWS EC2 INSTANCE
+/*
 resource "aws_instance" "web" {
 
   ami                             = "${var.ami_id}"
@@ -489,7 +490,7 @@ resource "aws_instance" "web" {
   }
   depends_on = [aws_db_instance.rds_instance]
 
-}
+}*/
 // CREATING CODE DEPLOY APP
 resource "aws_codedeploy_app" "CodeDeploy_App" {
   compute_platform = "Server"
@@ -500,7 +501,7 @@ resource "aws_codedeploy_deployment_group" "example" {
   app_name              = "${aws_codedeploy_app.CodeDeploy_App.name}"
   deployment_group_name = "csye6225-webapp-deployment"
   service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
-  
+  autoscaling_groups     = ["${aws_autoscaling_group.autoscaling_group.name}"]
   deployment_style {
     //deployment_option = "WITH_TRAFFIC_CONTROL"
     deployment_type   = "IN_PLACE"
@@ -516,7 +517,282 @@ resource "aws_codedeploy_deployment_group" "example" {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
+}
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+/*------------ Assignment 8 Modifications -------------------------------------------------------------------------------------------------------*/
+//-----------------------------------------------------------------------------------------------------------------------------------------------
+resource "aws_launch_configuration" "launch_configuration" {
+  name                            = "launch_configuration"
+  image_id                        = "${var.ami_id}"
+  instance_type                   = "t2.micro"
+  key_name                        = "${var.ssh-key-name}"
+  associate_public_ip_address     = true
+  user_data                       = "${file("init.tpl")}"
+  iam_instance_profile            = "${aws_iam_instance_profile.CodeDeployEC2ServiceRole_Instance.name}"
+  
+  security_groups                 = ["${aws_security_group.application.id}"]
+  
+  lifecycle {
+    create_before_destroy = true
+  }
 
+}
+
+
+//CREATING AUTO SCALING GROUP
+resource "aws_autoscaling_group" "autoscaling_group" {
+  name = "asg_launch_configuration"
+  launch_configuration = "${aws_launch_configuration.launch_configuration.id}"
+  min_size = "2"
+  max_size = "5"
+  desired_capacity = "2"
+  vpc_zone_identifier = ["${aws_subnet.csye6225_subnet.*.id[0]}"]
+  target_group_arns   = ["${aws_lb_target_group.target-group.arn}","${aws_lb_target_group.target-group2.arn}"]
+  //load_balancers = ["${aws_lb.load-balancer.id}"]
+  lifecycle {
+    create_before_destroy = true
+  }
+  tag{
+    key = "Name"
+    value = "ec2-instance"
+    propagate_at_launch = true
+  }
+
+  default_cooldown = "60"
+}
+
+/*
+//CREATING LOAD BALANCER for EC2 INSTANCE
+resource "aws_elb" "load-balancer" {
+  name                    = "load-balancer"
+  //count                   = "${length(data.aws_availability_zones.availability_zones.names)}"
+  //availability_zones      = "${data.aws_availability_zones.availability_zones.names[0]}"
+  subnets                 = ["${aws_subnet.csye6225_subnet.*.id[0]}"]
+  security_groups         = ["${aws_security_group.application.id}"]
+  instances               = ["${aws_instance.web.id}"]
+  listener {
+    instance_port = "80"
+    instance_protocol = "http"
+    lb_port = "3301"
+    lb_protocol = "http"
+  }
+   listener {
+    instance_port = "80"
+    instance_protocol = "http"
+    lb_port = "4200"
+    lb_protocol = "http"
+  }
+   listener {
+    instance_port = "80"
+    instance_protocol = "http"
+    lb_port = "80"
+    lb_protocol = "http"
+  }
+  
+  internal           = false
+}  ---------------------------------- */
+
+resource "aws_lb" "load-balancer" {
+  name               = "load-balancer"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = ["${aws_security_group.application.id}"]
+  //count              = "${length(data.aws_availability_zones.availability_zones.names)}" 
+  //subnets            = ["${element(aws_subnet.csye6225_subnet.*.id, count.index)}"]
+  subnets            = ["${aws_subnet.csye6225_subnet.*.id[0]}","${aws_subnet.csye6225_subnet.*.id[1]}"]
 
 
 }
+
+//CREATING LOAD BALANCER LISTENER      -----------------working fine
+resource "aws_lb_listener" "listener" {
+  //count             = "${length(data.aws_availability_zones.availability_zones.names)}" 
+  //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
+  load_balancer_arn = "${aws_lb.load-balancer.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+  
+  default_action {
+    
+    type = "forward"
+
+    target_group_arn = "${aws_lb_target_group.target-group.arn}"
+  }
+
+}
+
+
+resource "aws_lb_listener" "listener2" {
+  //count             = "${length(data.aws_availability_zones.availability_zones.names)}" 
+  //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
+  load_balancer_arn = "${aws_lb.load-balancer.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+  
+  default_action {
+    
+    type = "forward"
+
+    target_group_arn = "${aws_lb_target_group.target-group2.arn}"
+  }
+
+}
+
+//CREATING LOAD BALANCER TARGET GROUP
+resource "aws_lb_target_group" "target-group" {
+  name = "target-group"
+  port = "8080"
+  protocol = "HTTP"
+  vpc_id = "${aws_vpc.csye6225_awsdev.id}"
+  target_type = "instance"
+}
+
+resource "aws_lb_target_group" "target-group2" {
+  name = "target-group2"
+  port = "3301"
+  protocol = "HTTP"
+  vpc_id = "${aws_vpc.csye6225_awsdev.id}"
+  target_type = "instance"
+}
+/*
+resource "aws_lb_target_group_attachment" "target-group-attachment" {
+  target_group_arn    = "${aws_lb_target_group.target-group.arn}"
+  target_id           = "${aws_instance.web.id}"
+  port                = "8080"
+
+}
+resource "aws_lb_target_group_attachment" "target-group-attachment2" {
+  target_group_arn    = "${aws_lb_target_group.target-group2.arn}"
+  target_id           = "${aws_instance.web.id}"
+  port                = "8080"
+
+}
+*/
+
+//CREATING AUTO SCALING POLICY FOR SCALE UP
+resource "aws_autoscaling_policy" "WebServerScaleUpPolicy"{
+  name = "WebServerScaleUpPolicy"
+  autoscaling_group_name =  "${aws_autoscaling_group.autoscaling_group.name}"
+  adjustment_type = "ChangeInCapacity"
+  scaling_adjustment = "1"
+  cooldown = "60"
+
+}
+
+//CREATING AUTO SCALING POLICY FOR SCALE DOWN
+resource "aws_autoscaling_policy" "WebServerScaleDownPolicy"{
+  name = "WebServerScaleDownPolicy"
+  autoscaling_group_name =  "${aws_autoscaling_group.autoscaling_group.name}"
+  adjustment_type = "ChangeInCapacity"
+  scaling_adjustment = "-1"
+  cooldown = "60"
+
+}
+
+
+//CREATING AWS CLOUDWATCH ALARM FOR HIGH CPU USAGE
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmHigh" {
+  alarm_name = "CPUAlarmHigh"
+  comparison_operator = "GreaterThanThreshold"                           // REQUIRED
+  alarm_description = "Scale-up if CPU > 90% for 10 minutes"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  statistic = "Average"
+  period = "180"
+  evaluation_periods = "2"
+  threshold = "5"
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.autoscaling_group.name}"
+  }
+  alarm_actions     = ["${aws_autoscaling_policy.WebServerScaleUpPolicy.arn}"]
+
+
+}
+
+//CREATING AWS CLOUDWATCH ALARM FOR LOW CPU USAGE
+resource "aws_cloudwatch_metric_alarm" "CPUAlarmLow" {
+  alarm_name = "CPUAlarmLow"
+  comparison_operator = "LessThanThreshold"                           // REQUIRED
+  alarm_description = "Scale-down if CPU < 70% for 10 minutes"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  statistic = "Average"
+  period = "180"
+  evaluation_periods = "2"
+  threshold = "3"
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.autoscaling_group.name}"
+  }
+  alarm_actions     = ["${aws_autoscaling_policy.WebServerScaleDownPolicy.arn}"]
+
+}
+
+//CREATING ROUTE53 ZONE
+/*resource "aws_route53_zone" "prod" {
+  name = "prod.potterheadsbookstore.me"
+
+  tags = {
+    Environment = "prod"
+  }
+}*/
+
+data "aws_route53_zone" "prod" {
+  name         = "prod.potterheadsbookstore.me."
+  //private_zone = true
+
+}
+
+//ROUTE53 RESOURCE RECORD
+resource "aws_route53_record" "route53" {
+  zone_id = "${data.aws_route53_zone.prod.zone_id}"
+  name    = "lb.${data.aws_route53_zone.prod.name}"
+  type    = "A"
+  //ttl     = "60"
+  //count                  = "${length(data.aws_availability_zones.availability_zones.names)}" 
+  alias {
+    
+    //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
+    //name                   = "${element(aws_lb.load-balancer.*.dns_name, count.index)}"
+    name                   = "${aws_lb.load-balancer.dns_name}"
+    //zone_id                = "${element(aws_lb.load-balancer.*.zone_id, count.index)}"
+    zone_id                = "${aws_lb.load-balancer.zone_id}"
+    evaluate_target_health = true
+  }
+}
+
+
+
+
+/*
+//CREATING LOAD BALANCER LISTENER
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = "${aws_lb.load_balancer.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+  
+  default_action {
+    type = "forward"
+    target_group_arn = "${aws_lb_target_group.target_group.arn}"
+  }
+
+}
+
+//CREATING LOAD BALANCER TARGET GROUP
+resource "aws_lb_target_group" "target_group" {
+  name = "target_group"
+  port = "3301"
+  protocol = "HTTP"
+  vpc_id = "${aws_vpc.csye6225_awsdev.id}"
+
+
+}
+
+
+resource "aws_lb_target_group_attachment" "target_group_attachment" {
+  target_group_arn = "${aws_lb_target_group.target_group.arn}"
+  target_id        = "${aws_instance.web.id}"
+  //port             = 80
+}
+
+*/
