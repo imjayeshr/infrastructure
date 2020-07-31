@@ -1,6 +1,6 @@
 #Network Structures and Cloud Computing
-# Assignment 8 
-Assignment 5 - Infrastructure as Code
+# Assignment 10 
+Assignment 10 - Infrastructure as Code
 
 ## Running the project: 
 * Steps to run the project:
