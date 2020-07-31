@@ -104,6 +104,14 @@ name = "loadbalancersg"
 description = "Load Balancer Security Group"
 vpc_id = "${aws_vpc.csye6225_awsdev.id}" 
 
+  ingress {
+        description = "SSH from VPC"
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        cidr_blocks = ["0.0.0.0/0"]
+    }
+
 ingress {
 description = "Traffic on port 80; Home page"
 from_port = 80
@@ -116,6 +124,14 @@ ingress {
 description = "Port 3301 for stress/load testing the backend"
 from_port = 3301
 to_port = 3301
+protocol = "tcp"
+cidr_blocks = ["0.0.0.0/0"]
+}
+
+ingress {
+description = "Port 443 for HTTPS"
+from_port = 443
+to_port = 443
 protocol = "tcp"
 cidr_blocks = ["0.0.0.0/0"]
 }
@@ -137,9 +153,9 @@ resource "aws_security_group" "database"{
     vpc_id                  = "${aws_vpc.csye6225_awsdev.id}" 
 
     ingress {
-        description = "FOR MYSQL REQUEST "
-        from_port   = 3306
-        to_port     = 3306
+        description = "FOR POSTGRES REQUEST "
+        from_port   = 5432
+        to_port     = 5432
         protocol    = "tcp"
         //cidr_blocks = [aws_vpc.csye6225_awsdev.cidr_block]
         security_groups = ["${aws_security_group.application.id}"]
@@ -205,12 +221,27 @@ resource "aws_db_instance" "rds_instance"{
     publicly_accessible         = "false"
     name                        = "${var.db_name}"
 
+    storage_encrypted         = true
+
+
     //final_snapshot_identifier   = true
     skip_final_snapshot         = true
     deletion_protection         = false
     delete_automated_backups    = true
 
 }
+
+
+resource "aws_db_parameter_group" "parameter-group" {
+  name   = "rds-pg"
+  family = "postgres11"
+
+  parameter {
+    name  = "rds.force_ssl"
+    value = "1"
+  }
+
+ }
 
 //CREATING DYNAMO_DB TABLE
 resource "aws_dynamodb_table" "dynamodb_table" {
@@ -465,7 +496,11 @@ resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole2_Attachment"{
   role = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
-
+ 
+resource "aws_iam_role_policy_attachment" "CodeDeployServiceRole3_Attachment"{
+  role = "${aws_iam_role.CodeDeployEC2ServiceRole.id}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
 
 
 resource "aws_iam_instance_profile" "CodeDeployEC2ServiceRole_Instance" {
@@ -582,21 +617,52 @@ resource "aws_lb" "load-balancer" {
 }
 
 //CREATING LOAD BALANCER LISTENER      -----------------working fine
+# resource "aws_lb_listener" "listener" {
+#   //count             = "${length(data.aws_availability_zones.availability_zones.names)}" 
+#   //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
+#   load_balancer_arn = "${aws_lb.load-balancer.arn}"
+#   port              = "80"
+#   protocol          = "HTTP"
+  
+#   default_action {
+    
+#     type = "forward"
+
+#     target_group_arn = "${aws_lb_target_group.target-group.arn}"
+#   }
+
+# }
+
 resource "aws_lb_listener" "listener" {
   //count             = "${length(data.aws_availability_zones.availability_zones.names)}" 
   //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
   load_balancer_arn = "${aws_lb.load-balancer.arn}"
-  port              = "80"
-  protocol          = "HTTP"
+  port              = "443"
+  protocol          = "HTTPS"
   
+  certificate_arn = "arn:aws:acm:us-east-1:039067439781:certificate/59accea0-2342-4941-be49-3dcedb547f07"
   default_action {
     
     type = "forward"
 
     target_group_arn = "${aws_lb_target_group.target-group.arn}"
   }
+  # default_action {
+  #   type = "redirect"
+
+  #   redirect {
+  #     port        = "443"
+  #     protocol    = "HTTPS"
+  #     status_code = "HTTP_301"
+  #   }
+  # }
 
 }
+
+# resource "aws_lb_listener_certificate" "certificate" {
+#   listener_arn    = "${aws_lb_listener.listener.arn}"
+#   certificate_arn = "arn:aws:acm:us-east-1:039067439781:certificate/35b4a8e8-fc17-4c3c-8c06-f6bd5dbcc851"
+# }
 
 
 resource "aws_lb_listener" "listener2" {
@@ -604,8 +670,8 @@ resource "aws_lb_listener" "listener2" {
   //load_balancer_arn = "${element(aws_lb.load-balancer.*.arn, count.index)}"
   load_balancer_arn = "${aws_lb.load-balancer.arn}"
   port              = "3301"
-  protocol          = "HTTP"
-  
+  protocol          = "HTTPS"
+  certificate_arn = "arn:aws:acm:us-east-1:039067439781:certificate/59accea0-2342-4941-be49-3dcedb547f07"
   default_action {
     
     type = "forward"
@@ -724,7 +790,7 @@ resource "aws_route53_record" "route53" {
 
 //CREATING SNS TOPIC
 resource "aws_sns_topic" "sns-topic" {
-  name              = "sns-topic"
+  name              = "password_reset"
   
 }
 
@@ -1014,6 +1080,11 @@ resource "aws_iam_role_policy_attachment" "SESPolicyAttachment" {
   role = "${aws_iam_role.LambdaServiceRole.name}"
   policy_arn = "${aws_iam_policy.SESAccessPolicy.arn}"
 }
+resource "aws_iam_role_policy_attachment" "LambdaBasicExecutionRolePolicyAttachment" {
+  role = "${aws_iam_role.LambdaServiceRole.name}"
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
 
 
 //Creating JSON for Circle to S3 policy    --->>>>>> 2 POLICY
